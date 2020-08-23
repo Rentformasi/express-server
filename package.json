@@ -1,0 +1,35 @@
+{
+  "name": "express-server-rentformasi",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "NODE_ENV=development jest --runInBand",
+    "dev": "NODE_ENV=development nodemon bin/http",
+    "start": "node bin/http.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rentformasi/express-server.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Rentformasi/express-server/issues"
+  },
+  "homepage": "https://github.com/Rentformasi/express-server#readme",
+  "dependencies": {
+    "axios": "^0.19.2",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^8.2.0",
+    "express": "^4.17.1",
+    "http": "0.0.1-security",
+    "jsonapi-serializer": "^3.6.6",
+    "jsonwebtoken": "^8.5.1",
+    "pg": "^8.3.0",
+    "pluralize": "^8.0.0",
+    "sequelize": "^6.3.4"
+  }
+}
