@@ -111,26 +111,30 @@ class ProductController {
 
     // jsonapi pagination
     if (page != '' && typeof page !== 'undefined') {
-      if (page.offset != '' && typeof page.offset !== 'undefined' && page.offset > 0) {
-        paramQuerySQL.offset = parseInt(page.offset);
-      }
-
-      if (page.limit != '' && typeof page.limit !== 'undefined' && page.limit > 0) {
-        paramQuerySQL.limit = parseInt(page.limit);
-      }
+      page.limit = page.size ? +page.size : 5;
+      page.offset = page.number ? page.number * page.limit : 0;
+      paramQuerySQL.limit = page.limit;
+      paramQuerySQL.offset = page.offset;
     } else {
       page = {
+        limit: 2,
         offset: 0,
-        limit: 5
+        currentPage: 1
       }
-      paramQuerySQL.offset = page.offset;
       paramQuerySQL.limit = page.limit;
+      paramQuerySQL.offset = page.offset;
     }
     
     // sequelize
     Category.findAndCountAll(paramQuerySQL)
       .then(response => {
-        var jsonapi = new JSONAPISerializer('categories', {
+        page.totalPages = Math.ceil(response.count / page.limit);
+        console.log(page.currentPage, page.totalPages)
+        if (page != '' && typeof page !== 'undefined') {
+          page.currentPage = page.size ? +page.size : 0;
+        }
+
+        let jsonapi = new JSONAPISerializer('categories', {
           pluralizeType: true,
           keyForAttribute: 'camelCase',
           attributes: ['title', 'subCategories'],
@@ -148,39 +152,38 @@ class ProductController {
               }
             }
           },
-          
           topLevelLinks: {
             self: function() {
-              return `http://localhost:3000/products/categories?page[offset]=${page.offset}&page[limit]=${page.limit}`;
+              return `http://localhost:3000/products/categories?page[number]=${page.number}&page[size]=${page.size}`;
             },
-            first: function() {
-              return `http://localhost:3000/products/categories?page[offset]=${0}&page[limit]=${page.limit}`;
-            },
-            prev: function() {
-              if (parseInt(page.offset) <= 0) {
-                return null;
-              } else {
-                let prev = parseInt(page.offset) - parseInt(page.limit);
-                if (prev < response.count) {
-                  return null;
-                }
-                return `http://localhost:3000/products/categories?page[offset]=${prev}&page[limit]=${page.limit}`;
-              }
-            },
-            next: function() {
-              if (parseInt(page.offset) >= response.count) {
-                return null;
-              } else {
-                let next = parseInt(page.offset) + parseInt(page.limit);
-                if (next > response.count) {
-                  return null;
-                }
-                return `http://localhost:3000/products/categories?page[offset]=${next}&page[limit]=${page.limit}`;
-              }
-            },
-            last: function() {
-              return `http://localhost:3000/products/categories?page[offset]=${Math.ceil(response.count / page.limit)-1}&page[limit]=${page.limit}`;
-            }
+            // first: function() {
+            //   return `http://localhost:3000/products/categories?page[offset]=${0}&page[limit]=${page.limit}`;
+            // },
+            // prev: function() {
+            //   if (parseInt(page.offset) <= 0) {
+            //     return null;
+            //   } else {
+            //     let prev = Math.ceil(parseInt(page.offset) - parseInt(page.limit));
+            //     if (prev < response.count) {
+            //       return null;
+            //     }
+            //     return `http://localhost:3000/products/categories?page[offset]=${prev}&page[limit]=${page.limit}`;
+            //   }
+            // },
+            // next: function() {
+            //   if (parseInt(page.offset) >= response.count) {
+            //     return null;
+            //   } else {
+            //     let next = Math.ceil((parseInt(page.offset) + parseInt(page.limit) - 1));
+            //     if (next > response.count) {
+            //       return null;
+            //     }
+            //     return `http://localhost:3000/products/categories?page[offset]=${next}&page[limit]=${page.limit}`;
+            //   }
+            // },
+            // last: function() {
+            //   return `http://localhost:3000/products/categories?page[offset]=${Math.ceil(response.count/page.limit)-1}&page[limit]=${page.limit}`;
+            // }
           }
         }).serialize(response.rows);
         res.status(200).json(jsonapi);
