@@ -112,12 +112,19 @@ class ProductController {
     // jsonapi pagination
     if (page != '' && typeof page !== 'undefined') {
       if (page.offset != '' && typeof page.offset !== 'undefined' && page.offset > 0) {
-        paramQuerySQL.offset = parseInt(page.offset) || 0;
+        paramQuerySQL.offset = parseInt(page.offset);
       }
 
       if (page.limit != '' && typeof page.limit !== 'undefined' && page.limit > 0) {
-        paramQuerySQL.limit = parseInt(page.limit) || 5;
+        paramQuerySQL.limit = parseInt(page.limit);
       }
+    } else {
+      page = {
+        offset: 0,
+        limit: 5
+      }
+      paramQuerySQL.offset = page.offset;
+      paramQuerySQL.limit = page.limit;
     }
     
     // sequelize
@@ -141,14 +148,15 @@ class ProductController {
               }
             }
           },
+          
           topLevelLinks: {
-            self: function(data) {
+            self: function() {
               return `http://localhost:3000/products/categories?page[offset]=${page.offset}&page[limit]=${page.limit}`;
             },
-            first: function(data) {
+            first: function() {
               return `http://localhost:3000/products/categories?page[offset]=${0}&page[limit]=${page.limit}`;
             },
-            prev: function(data) {
+            prev: function() {
               if (parseInt(page.offset) <= 0) {
                 return null;
               } else {
@@ -159,7 +167,7 @@ class ProductController {
                 return `http://localhost:3000/products/categories?page[offset]=${prev}&page[limit]=${page.limit}`;
               }
             },
-            next: function(data) {
+            next: function() {
               if (parseInt(page.offset) >= response.count) {
                 return null;
               } else {
@@ -170,8 +178,8 @@ class ProductController {
                 return `http://localhost:3000/products/categories?page[offset]=${next}&page[limit]=${page.limit}`;
               }
             },
-            last: function(data) {
-              return `http://localhost:3000/products/categories?page[offset]=${response.count}&page[limit]=${page.limit}`;
+            last: function() {
+              return `http://localhost:3000/products/categories?page[offset]=${Math.ceil(response.count / page.limit)-1}&page[limit]=${page.limit}`;
             }
           }
         }).serialize(response.rows);
