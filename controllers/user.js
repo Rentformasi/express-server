@@ -48,7 +48,7 @@ class UserController {
   }
 
   static findOne(req, res, next) {
-    const id = req.decoded
+    const id = req.decoded;
     User.findOne({
       include: [
       {
@@ -74,7 +74,7 @@ class UserController {
     })
     .catch(err => {
       next(err);
-    })
+    });
   }
 
   static register(req, res, next) {
