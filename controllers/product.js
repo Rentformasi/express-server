@@ -4,7 +4,24 @@ const JSONAPISerializer = require('jsonapi-serializer').Serializer;
 const JSONAPIDeserializer = require('jsonapi-serializer').Deserializer;
 const pluralize = require('pluralize');
 
-class ProductController {
+
+// pagination
+const getPagination = (number, size) => {
+  const limit = size ? +size : 3;
+  const offset = number ? number * limit : 0;
+
+  return { limit, offset };
+};
+
+const getPagingData = (response, number, limit) => {
+  const { count: totalItems, rows: data } = response;
+  const currentPage = number ? +number : 0;
+  const totalPages = Math.ceil(totalItems / limit);
+
+  return { totalItems, data, totalPages, currentPage };
+};
+
+class ProductController  {
 
   static addProduct(req, res, next) {
     
@@ -64,6 +81,7 @@ class ProductController {
   static getCategories(req, res, next) {
     let { filter, sort, include, page } = req.query;
     let paramQuerySQL = {};
+    let limit, offset;
 
     // jsonapi filtering - [title]
     if (filter != '' && typeof filter !== 'undefined') {
@@ -111,81 +129,98 @@ class ProductController {
 
     // jsonapi pagination
     if (page != '' && typeof page !== 'undefined') {
-      page.limit = page.size ? +page.size : 5;
-      page.offset = page.number ? page.number * page.limit : 0;
-      paramQuerySQL.limit = page.limit;
-      paramQuerySQL.offset = page.offset;
-    } else {
-      page = {
-        limit: 2,
-        offset: 0,
-        currentPage: 1
+
+      if (page.size != '' && typeof page.size !== 'undefined') {
+        limit = page.size;
+        paramQuerySQL.limit = limit;
       }
-      paramQuerySQL.limit = page.limit;
-      paramQuerySQL.offset = page.offset;
+
+      if (page.number != '' && typeof page.number !== 'undefined') {
+        offset = (page.number * limit) - limit;
+        paramQuerySQL.offset = offset;
+      }
+    } else {
+      limit = 5;
+      offset = 0;
+      paramQuerySQL.limit = limit;
+      paramQuerySQL.offset = offset;
     }
     
     // sequelize
     Category.findAndCountAll(paramQuerySQL)
       .then(response => {
-        page.totalPages = Math.ceil(response.count / page.limit);
-        console.log(page.currentPage, page.totalPages)
+        let currentPage, totalPages, jsonapi;
         if (page != '' && typeof page !== 'undefined') {
-          page.currentPage = page.size ? +page.size : 0;
-        }
+          currentPage = page.number ? +page.number : 0;
+          totalPages = Math.ceil(response.count / limit);
 
-        let jsonapi = new JSONAPISerializer('categories', {
-          pluralizeType: true,
-          keyForAttribute: 'camelCase',
-          attributes: ['title', 'subCategories'],
-          subCategories: {
-            ref: 'id',
-            attributes: ['title', 'image'],
-            includedLinks: {
-              self: function (record, current) {
-                return `http://localhost:3000/subcategories/${current.id}`;
+          jsonapi = new JSONAPISerializer('categories', {
+            pluralizeType: true,
+            keyForAttribute: 'camelCase',
+            attributes: ['title', 'subCategories'],
+            subCategories: {
+              ref: 'id',
+              attributes: ['title', 'image'],
+              includedLinks: {
+                self: function (record, current) {
+                  return `${process.env.BASE_URL}/subcategories/${current.id}`;
+                }
+              },
+              relationshipLinks: {
+                related: function (record, current, parent) {
+                  return `${process.env.BASE_URL}/products/categories/${parent.id}/subcategories/`;
+                }
               }
             },
-            relationshipLinks: {
-              related: function (record, current, parent) {
-                return `http://localhost:3000/products/categories/${parent.id}/subcategories/`;
+            topLevelLinks: {
+              self: function() {
+                return `${process.env.BASE_URL}/products/categories?page[number]=${currentPage}&page[size]=${limit}`;
+              },
+              first: function() {
+                return `${process.env.BASE_URL}/products/categories?page[number]=${1}&page[size]=${limit}`;
+              },
+              prev: function() {
+                if (parseInt(currentPage) <= 1) {
+                  return null;
+                } else {
+                  return `${process.env.BASE_URL}/products/categories?page[number]=${currentPage-1}&page[size]=${limit}`;
+                }
+              },
+              next: function() {
+                if (parseInt(currentPage) >= totalPages) {
+                  return null;
+                } else {
+                  return `${process.env.BASE_URL}/products/categories?page[number]=${currentPage+1}&page[size]=${limit}`;
+                }
+              },
+              last: function() {
+                return `${process.env.BASE_URL}/products/categories?page[number]=${totalPages}&page[size]=${limit}`;
               }
             }
-          },
-          topLevelLinks: {
-            self: function() {
-              return `http://localhost:3000/products/categories?page[number]=${page.number}&page[size]=${page.size}`;
-            },
-            // first: function() {
-            //   return `http://localhost:3000/products/categories?page[offset]=${0}&page[limit]=${page.limit}`;
-            // },
-            // prev: function() {
-            //   if (parseInt(page.offset) <= 0) {
-            //     return null;
-            //   } else {
-            //     let prev = Math.ceil(parseInt(page.offset) - parseInt(page.limit));
-            //     if (prev < response.count) {
-            //       return null;
-            //     }
-            //     return `http://localhost:3000/products/categories?page[offset]=${prev}&page[limit]=${page.limit}`;
-            //   }
-            // },
-            // next: function() {
-            //   if (parseInt(page.offset) >= response.count) {
-            //     return null;
-            //   } else {
-            //     let next = Math.ceil((parseInt(page.offset) + parseInt(page.limit) - 1));
-            //     if (next > response.count) {
-            //       return null;
-            //     }
-            //     return `http://localhost:3000/products/categories?page[offset]=${next}&page[limit]=${page.limit}`;
-            //   }
-            // },
-            // last: function() {
-            //   return `http://localhost:3000/products/categories?page[offset]=${Math.ceil(response.count/page.limit)-1}&page[limit]=${page.limit}`;
-            // }
-          }
-        }).serialize(response.rows);
+          }).serialize(response.rows);
+        } else {
+          jsonapi = new JSONAPISerializer('categories', {
+            pluralizeType: true,
+            keyForAttribute: 'camelCase',
+            attributes: ['title', 'subCategories'],
+            subCategories: {
+              ref: 'id',
+              attributes: ['title', 'image'],
+              includedLinks: {
+                self: function (record, current) {
+                  return `${process.env.BASE_URL}/subcategories/${current.id}`;
+                }
+              },
+              relationshipLinks: {
+                related: function (record, current, parent) {
+                  return `${process.env.BASE_URL}/products/categories/${parent.id}/subcategories/`;
+                }
+              }
+            }
+          }).serialize(response.rows);
+        }
+
+        
         res.status(200).json(jsonapi);
       })
       .catch(err => next(err));
