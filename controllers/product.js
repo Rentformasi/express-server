@@ -150,7 +150,7 @@ class ProductController  {
     Category.findAndCountAll(paramQuerySQL)
       .then(response => {
         let currentPage, totalPages, jsonapi;
-        if (page != '' && typeof page !== 'undefined') {
+        if (page != '' && typeof page !== 'undefined' && page.number != '' && typeof page.number !== 'undefined') {
           currentPage = page.number ? +page.number : 0;
           totalPages = Math.ceil(response.count / limit);
 
